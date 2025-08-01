@@ -8,7 +8,6 @@ This client provides direct access to the EIP's capabilities for understanding d
 
 ## Getting Started
 
-
 ### Installation
 
 You can install this package via pip.
@@ -20,34 +19,30 @@ pip install sumtyme
 ### Client Initialisation and API Key
 To use the client, you need an API key and must initialise the `EIPClient` with a subdomain.
 
-
 #### Option 1: Use an Existing API Key
-If you already have an API key, we recommend setting it as an environment variable named apikey. The client will automatically load it upon initialisation.
+If you already have an API key, we recommend saving it as a config.txt within your environment and passing it to the `apikey_path` variable during initialisation.
 
-**Create a `.env` file:**
+**Create a `config.txt` file:**
 ```dotenv
 apikey="your-api-key-here"
 ```
 
 Then, initialise the client in your code:
 
-
 ```python
 from sumtyme import EIPClient
 
 # Replace 'your-subdomain' with your assigned EIP subdomain.
-client = EIPClient(subdomain='your-subdomain')
+client = EIPClient(subdomain='your-subdomain',apikey_path='config.txt')
 ```
-
 
 #### Option 2: Sign Up for a New API Key
 
-If you do not yet have an API key, you can register as a new user and obtain one directly through the client's `user_signup`. This method will send a sign-up request to the EIP, return your API key and automatically save it to a local .txt file. After signing up, email team@sumtyme.ai for profile activation.
-
+If you do not yet have an API key, you can register as a new user and obtain one directly through the client's `user_signup`. This method will send a sign-up request to the EIP, return your API key and automatically save it to a local config.txt file. After signing up, email team@sumtyme.ai for account activation.
 
 ```python
-# Initialise the client with your subdomain
-client = EIPClient(subdomain='your-subdomain')
+# Initialise the client with your subdomain and A
+client = EIPClient(subdomain='your-subdomain',apikey_path='config.txt')
 
 # Register a new user and get your API key
 signup_result = client.user_signup(payload={
