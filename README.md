@@ -1,4 +1,4 @@
-# sumtyme
+# Embedded Intelligence Platform
 
 A Python client for interacting with the **Embedded Intelligence Platform (EIP)** by sumtyme.ai.
 
