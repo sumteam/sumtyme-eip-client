@@ -12,13 +12,13 @@ with open('requirements.txt') as f:
 
 setup(
     name='sumtyme',
-    version='0.1.1',
+    version='1.0.9',
     author='sumteam',
     author_email='team@sumtyme.ai',
     description='Python Client for Embedded Intelligence Platform by sumtyme.ai.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/yourusername/sumtyme-eip-client', 
+    url='https://github.com/sumteam/sumtyme-eip-client', 
     packages=find_packages(), 
     install_requires=requirements, 
     classifiers=[
