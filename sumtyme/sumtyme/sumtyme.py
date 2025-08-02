@@ -1,11 +1,53 @@
 import pandas as pd
 import requests
-import os
 import json
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
 from typing import Union
+import os
+import warnings
+from dateutil import parser
+
+
+
+def read_api_key(file_path):
+    """
+    Reads an API key from a file in a key=value format.
+
+    Args:
+        file_path (str): The path to the file containing the API key.
+
+    Returns:
+        str: The API key value, or None if the key cannot be read.
+    """
+    try:
+        with open(file_path, 'r') as f:
+            line = f.readline().strip()
+
+            # Ensure the line is not empty and contains an '='
+            if not line or '=' not in line:
+                print(f"Error: The file '{file_path}' has an invalid format. Expected 'key=value'.")
+                return None
+
+            # Split the line at the first '=' to separate key and value
+            key, value = line.split('=', 1)
+
+            # Strip any surrounding whitespace from the value
+            # and remove any potential quotes if they exist
+            api_key = value.strip().strip('"').strip("'")
+            
+            # Check if the extracted value is empty
+            if not api_key:
+                print(f"Error: The API key value in '{file_path}' is empty.")
+                return None
+            
+            return api_key
+
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred while reading the file: {e}")
+        return None
 
 def read_dataframe(data: Union[str, pd.DataFrame], **kwargs) -> pd.DataFrame:
     """
@@ -86,13 +128,47 @@ def read_dataframe(data: Union[str, pd.DataFrame], **kwargs) -> pd.DataFrame:
     else:
         raise TypeError("Input must be a file path (str) or a pandas DataFrame.")
 
-    # Validate the columns in the resulting DataFrame
     ohlc_cols = {'datetime', 'open', 'high', 'low', 'close'}
     current_cols = set(df.columns.str.lower())
     has_ohlc = ohlc_cols.issubset(current_cols)
 
     if not has_ohlc:
         raise ValueError("DataFrame must contain the columns: 'datetime', 'open', 'high', 'low', 'close'")
+
+    valid_date_formats = [
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M',
+        '%Y-%m-%d',
+        '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%dT%H:%M:%SZ',
+        '%d-%m-%Y',
+        '%d/%m/%Y',
+        '%d/%m/%Y %H:%M',
+        '%d/%m/%Y %H:%M:%S',
+        '%d-%m-%Y %H:%M:%S',
+        '%d-%m-%Y %H:%M'
+    ]
+    
+    datetime_series = df['datetime'].copy()
+    format_found = False
+    
+    for fmt in valid_date_formats:
+        try:
+            # Try to convert using a specific format
+            datetime_series = pd.to_datetime(df['datetime'], format=fmt)
+            format_found = True
+            break  # Stop at the first successful format
+        except (ValueError, TypeError):
+            continue  # Try the next format if this one fails
+
+    if not format_found:
+        raise ValueError(
+            f"Could not convert 'datetime' column to any of the supported formats. "
+            f"Supported formats are: {', '.join(valid_date_formats)}"
+        )
+
+    # Convert to the datetime format for API
+    df['datetime'] = datetime_series.dt.strftime('%Y-%m-%d %H:%M:%S')
 
     return df
 
@@ -166,11 +242,11 @@ class EIPClient:
     SIGNUP = "/signup"
     TS_API_PATH = "/agn-reasoning/ts"
 
-    def __init__(self, subdomain: str):
+    def __init__(self, subdomain: str, apikey_path: str):
         """
         Initialises the EIPClient.
 
-        Automatically loads the 'apikey' from environment variables (e.g., .env file).
+        Automatically loads the 'apikey' from file (e.g., .txt file).
 
         Parameters:
         -----------
@@ -183,15 +259,23 @@ class EIPClient:
 
         self.base_url = f"https://{subdomain}.sumtyme.cloud"
 
-        load_dotenv()
-        self.api_key = os.environ.get('apikey')
+        if apikey_path == None:
 
-        if not self.api_key:
-            raise ValueError(
-                "API key not found. Set the 'apikey' environment variable in a .env file or directly in your system environment."
+            warnings.warn(
+                "To obtain an API key, sign up for an account using the `user_signup` method.",
+                UserWarning
             )
 
-        print(f"EIPClient initialised for subdomain: https://{subdomain}.sumtyme.cloud/\nAPI key loaded.")
+        else:
+
+            self.api_key = read_api_key(apikey_path)
+
+            if not self.api_key:
+                raise ValueError(
+                    f"API key not found in file named {apikey_path}. Create a .txt file with your API Key"
+                )
+
+            print(f"EIPClient initialised for subdomain: https://{subdomain}.sumtyme.cloud/\nAPI key loaded.")
 
     def send_signup_request(self, path: str, payload: dict) -> dict:
         """
@@ -216,9 +300,10 @@ class EIPClient:
 
                 if api_key:
               
-                    filename = f"api_key_{user_email.replace('@', '_').replace('.', '_')}.txt"
+                    filename = f"config.txt"
                     with open(filename, "w") as f:
-                        f.write(api_key)
+                        text_input = "apikey="+api_key
+                        f.write(text_input)
                     print(f"Success: {message}")
                     print(f"API Key for {user_email} saved to {filename}")
                     return {"success": True, "api_key": api_key, "filename": filename}
@@ -262,6 +347,7 @@ class EIPClient:
         
         try:
             response = requests.post(full_url, json=payload, headers=headers)
+           
             response.raise_for_status()
             response_data = response.json()
 
@@ -461,6 +547,9 @@ class EIPClient:
         if output_file is not None:
             result_df.to_csv(f"{output_file}.csv",index=False)
             print(f"Outputs saved to {output_file}.csv")
+        
+        print(f"Last 5 rows...\n{result_df.tail(5)}")
+
         return result_df
 
 
